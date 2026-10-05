@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Mi Lista">
+
+    <title>Mi Lista de Compra</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f2f2f7;
+            color: #111;
+        }
+
+        .app {
+            max-width: 600px;
+            margin: auto;
+            min-height: 100vh;
+            padding: 25px 16px 40px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin: 10px 0 5px;
+        }
+
+        .subtitle {
+            color: #777;
+            margin-bottom: 25px;
+        }
+
+        .add-box {
+            background: white;
+            padding: 12px;
+            border-radius: 18px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+        }
+
+        #productInput {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 17px;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        #quantityInput {
+            width: 65px;
+            border: none;
+            background: #f2f2f7;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 17px;
+            outline: none;
+        }
+
+        .add-button {
+            border: none;
+            background: #007aff;
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            border-radius: 13px;
+            padding: 0 17px;
+            cursor: pointer;
+        }
+
+        .list {
+            margin-top: 20px;
+        }
+
+        .item {
+            background: white;
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .check {
+            width: 25px;
+            height: 25px;
+            border: 2px solid #bbb;
+            border-radius: 50%;
+            flex-shrink: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 15px;
+        }
+
+        .item.checked .check {
+            background: #34c759;
+            border-color: #34c759;
+        }
+
+        .item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .product-name {
+            font-size: 17px;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .quantity {
+            font-size: 14px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .item.checked .product-name {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .delete {
+            border: none;
+            background: transparent;
+            color: #ff3b30;
+            font-size: 23px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .empty {
+            text-align: center;
+            color: #888;
+            padding: 50px 20px;
+        }
+
+        .bottom-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .secondary-button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            background: white;
+            color: #007aff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .danger-button {
+            color: #ff3b30;
+        }
+
+        .counter {
+            margin-top: 20px;
+            text-align: center;
+            color: #777;
+            font-size: 14px;
+        }
+
+        @media (max-width: 400px) {
+            .add-box {
+                flex-wrap: wrap;
+            }
+
+            #productInput {
+                width: 100%;
+                flex-basis: 100%;
+            }
+
+            #quantityInput {
+                height: 44px;
+            }
+
+            .add-button {
+                height: 44px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <h1>🛒 Mi lista</h1>
+    <div class="subtitle">Lista de la compra</div>
+
+    <div class="add-box">
+
+        <input
+            id="productInput"
+            type="text"
+            placeholder="¿Qué necesitas?"
+            autocomplete="off"
+        >
+
+        <input
+            id="quantityInput"
+            type="number"
+            min="1"
+            value="1"
+        >
+
+        <button class="add-button" onclick="addProduct()">
+            Añadir
+        </button>
+
+    </div>
+
+    <div id="list" class="list"></div>
+
+    <div id="counter" class="counter"></div>
+
+    <div class="bottom-buttons">
+
+        <button class="secondary-button" onclick="removeChecked()">
+            Borrar comprados
+        </button>
+
+        <button class="secondary-button danger-button" onclick="clearAll()">
+            Vaciar lista
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- FIREBASE -->
+
+<script type="module">
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+    import {
+        getFirestore,
+        collection,
+        addDoc,
+        deleteDoc,
+        doc,
+        updateDoc,
+        onSnapshot,
+        getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
+    // CONFIGURACIÓN DE TU FIREBASE
+
+    const firebaseConfig = {
+
+        apiKey: "AIzaSyBvNBqRKE0ab6L_Ov67FC52lzki_y67Fiw",
+
+        authDomain: "lista-compra-ff5df.firebaseapp.com",
+
+        projectId: "lista-compra-ff5df",
+
+        storageBucket: "lista-compra-ff5df.firebasestorage.app",
+
+        messagingSenderId: "15044344459",
+
+        appId: "1:15044344459:web:3421a2bcd6f0050a46f28e",
+
+        measurementId: "G-Y1JWX51M8M"
+
+    };
+
+
+    // INICIAR FIREBASE
+
+    const app = initializeApp(firebaseConfig);
+
+    const db = getFirestore(app);
+
+
+    // COLECCIÓN DE LA LISTA
+
+    const productsRef = collection(db, "shoppingList");
+
+
+    // ARRAY LOCAL
+
+    let products = [];
+
+
+    // ESCUCHAR CAMBIOS EN TIEMPO REAL
+
+    onSnapshot(productsRef, (snapshot) => {
+
+        products = [];
+
+        snapshot.forEach((document) => {
+
+            products.push({
+
+                id: document.id,
+
+                ...document.data()
+
+            });
+
+        });
+
+        render();
+
+    });
+
+
+    // AÑADIR PRODUCTO
+
+    window.addProduct = async function() {
+
+        const input = document.getElementById("productInput");
+
+        const quantityInput =
+            document.getElementById("quantityInput");
+
+        const name = input.value.trim();
+
+        const quantity =
+            parseInt(quantityInput.value);
+
+
+        if (name === "") {
+
+            input.focus();
+
+            return;
+
+        }
+
+
+        await addDoc(productsRef, {
+
+            name: name,
+
+            quantity: quantity > 0 ? quantity : 1,
+
+            checked: false,
+
+            createdAt: Date.now()
+
+        });
+
+
+        input.value = "";
+
+        quantityInput.value = 1;
+
+        input.focus();
+
+    };
+
+
+    // MARCAR COMO COMPRADO
+
+    window.toggleProduct = async function(id) {
+
+        const product =
+            products.find(p => p.id === id);
+
+        if (!product) return;
+
+
+        await updateDoc(
+
+            doc(db, "shoppingList", id),
+
+            {
+
+                checked: !product.checked
+
+            }
+
+        );
+
+    };
+
+
+    // BORRAR PRODUCTO
+
+    window.deleteProduct = async function(id) {
+
+        await deleteDoc(
+
+            doc(db, "shoppingList", id)
+
+        );
+
+    };
+
+
+    // BORRAR COMPRADOS
+
+    window.removeChecked = async function() {
+
+        const checkedProducts =
+            products.filter(p => p.checked);
+
+
+        for (const product of checkedProducts) {
+
+            await deleteDoc(
+
+                doc(db, "shoppingList", product.id)
+
+            );
+
+        }
+
+    };
+
+
+    // VACIAR TODA LA LISTA
+
+    window.clearAll = async function() {
+
+        if (products.length === 0) {
+
+            return;
+
+        }
+
+
+        const confirmDelete = confirm(
+
+            "¿Seguro que quieres borrar toda la lista?"
+
+        );
+
+
+        if (!confirmDelete) {
+
+            return;
+
+        }
+
+
+        const snapshot =
+            await getDocs(productsRef);
+
+
+        for (const document of snapshot.docs) {
+
+            await deleteDoc(document.ref);
+
+        }
+
+    };
+
+
+    // MOSTRAR LISTA
+
+    function render() {
+
+        const list =
+            document.getElementById("list");
+
+        const counter =
+            document.getElementById("counter");
+
+
+        list.innerHTML = "";
+
+
+        if (products.length === 0) {
+
+            list.innerHTML = `
+
+                <div class="empty">
+
+                    <div style="font-size:50px;">
+                        🛒
+                    </div>
+
+                    <p>Tu lista está vacía</p>
+
+                    <p>Añade algo para empezar.</p>
+
+                </div>
+
+            `;
+
+
+            counter.innerText = "";
+
+            return;
+
+        }
+
+
+        // SIN COMPRAR PRIMERO
+
+        const sortedProducts =
+            [...products].sort(
+
+                (a, b) =>
+                    a.checked - b.checked
+
+            );
+
+
+        sortedProducts.forEach(product => {
+
+            const item =
+                document.createElement("div");
+
+
+            item.className =
+                "item" +
+                (product.checked
+                    ? " checked"
+                    : "");
+
+
+            item.innerHTML = `
+
+                <div
+                    class="check"
+                    onclick="toggleProduct('${product.id}')"
+                >
+
+                    ${product.checked ? "✓" : ""}
+
+                </div>
+
+
+                <div class="item-content">
+
+                    <div class="product-name">
+
+                        ${escapeHTML(product.name)}
+
+                    </div>
+
+
+                    <div class="quantity">
+
+                        Cantidad: ${product.quantity}
+
+                    </div>
+
+                </div>
+
+
+                <button
+
+                    class="delete"
+
+                    onclick="deleteProduct('${product.id}')"
+
+                >
+
+                    ×
+
+                </button>
+
+            `;
+
+
+            list.appendChild(item);
+
+        });
+
+
+        const pending =
+            products.filter(
+                p => !p.checked
+            ).length;
+
+
+        const completed =
+            products.filter(
+                p => p.checked
+            ).length;
+
+
+        counter.innerText =
+
+            `${pending} pendientes · ${completed} comprados`;
+
+    }
+
+
+    // PROTEGER CONTRA HTML
+
+    function escapeHTML(text) {
+
+        const div =
+            document.createElement("div");
+
+        div.textContent = text;
+
+        return div.innerHTML;
+
+    }
+
+
+    // ENTER PARA AÑADIR
+
+    document
+        .getElementById("productInput")
+        .addEventListener(
+
+            "keydown",
+
+            function(event) {
+
+                if (event.key === "Enter") {
+
+                    addProduct();
+
+                }
+
+            }
+
+        );
+
+</script>
+
+</body>
+</html>
